@@ -29,12 +29,14 @@ except Exception as e:
 
 # ---- Load dataset ----
 try:
-    path = "./dataset"  # Adjust if your path differs
-    players = pd.read_csv(path + "/player_stats.csv")
-    maps = pd.read_csv(path + "/maps_stats.csv")
-    st.success(" Dataset loaded successfully!")
+    st.write(" Loading datasets ...")
+    team_stats = pd.read_csv("dataset/team_aggregated_stats.csv")
+    maps = pd.read_csv("dataset/maps_stats.csv")
+    st.success(f" Dataset loaded! team_aggregated_stats.csv rows: {len(team_stats)}")
+    st.write("Columns:", list(team_stats.columns))
 except Exception as e:
-    st.error(f" Error loading dataset: {e}")
+    st.error(f" Error loading dataset: {type(e).__name__}: {e}")
+
 
 
 # ---- Build UI using precomputed team_aggregated_stats ----
