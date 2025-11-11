@@ -4,6 +4,15 @@ import numpy as np
 import joblib
 import os
 
+#  Debugging info for dataset path
+st.write(" Current working directory:", os.getcwd())
+st.write(" Files here:", os.listdir("."))
+if os.path.exists("dataset"):
+    st.write(" dataset/ folder found. Contents:", os.listdir("dataset"))
+else:
+    st.error(" dataset folder not found in current directory.")
+
+
 st.set_page_config(page_title="Valorant Winner Predictor", layout="centered")
 st.title(" Valorant Match Winner Predictor")
 st.markdown("Select both teams and a map to predict who’s likely to win the match!")
