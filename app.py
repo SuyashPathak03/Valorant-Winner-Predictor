@@ -28,71 +28,62 @@ except Exception as e:
     st.error(f" Error loading dataset: {e}")
 
 
-# ---- Compute average team stats ----
-if 'players' in locals() and not players.empty:
-    # Auto-detect correct team column
-    team_col = None
-    for c in players.columns:
-        if c.lower() in ["player_team", "team", "team_name", "playerteam"]:
-            team_col = c
-            break
+# ---- Build UI using precomputed team_aggregated_stats ----
+if 'team_stats' in locals() and not team_stats.empty:
+    st.info(" Using precomputed team_aggregated_stats.csv")
 
-    if team_col:
-        st.info(f" Using team column: `{team_col}`")
+    # Sidebar selections
+    st.sidebar.header("Select Match Details")
+    team_list = sorted(team_stats["team"].dropna().unique())
 
-        # Check for required numeric columns
-        required_stats = [col for col in ["rating", "acs", "adr"] if col in players.columns]
-        if len(required_stats) < 3:
-            st.warning(" Some expected stat columns (rating, acs, adr) are missing in player_stats.csv.")
-        else:
-            # Calculate team averages
-            team_stats = players.groupby(team_col)[required_stats].mean().reset_index().rename(columns={team_col: "team"})
-
-            # Sidebar selections
-            st.sidebar.header("Select Match Details")
-            team_list = sorted(team_stats["team"].dropna().unique())
-
-            if len(team_list) == 0:
-                st.error(" No team names found in the dataset.")
-            else:
-                maps_col = None
-                for c in maps.columns:
-                    if c.lower() in ["map_name", "map", "mapname"]:
-                        maps_col = c
-                        break
-
-                if maps_col:
-                    map_list = sorted(maps[maps_col].dropna().unique())
-                else:
-                    st.warning(" Could not detect map column; using default maps.")
-                    map_list = ["ascent", "haven", "lotus", "split", "bind", "sunset", "breeze", "abyss"]
-
-                team1 = st.sidebar.selectbox("Select Team 1", team_list)
-                team2 = st.sidebar.selectbox("Select Team 2", [t for t in team_list if t != team1])
-                selected_map = st.sidebar.selectbox("Select Map", map_list)
-
-                # Prediction button
-                if st.button("Predict Winner"):
-                    t1 = team_stats.loc[team_stats["team"] == team1].select_dtypes(include='number').mean(numeric_only=True)
-                    t2 = team_stats.loc[team_stats["team"] == team2].select_dtypes(include='number').mean(numeric_only=True)
-
-                    input_data = np.array([[
-                        t1.get("rating", 1.0), t2.get("rating", 1.0),
-                        t1.get("acs", 200), t2.get("acs", 200),
-                        t1.get("adr", 120), t2.get("adr", 120),
-                        0
-                    ]])
-
-                    try:
-                        pred = model.predict(input_data)[0]
-                        st.subheader(f" Map: {selected_map.upper()}")
-                        if pred == 1:
-                            st.success(f" {team1.upper()} is likely to WIN!")
-                        else:
-                            st.error(f" {team2.upper()} might WIN!")
-                    except Exception as e:
-                        st.error(f" Prediction error: {e}")
+    if len(team_list) == 0:
+        st.error(" No team names found in team_aggregated_stats.csv.")
     else:
-        st.error(" Could not find a valid team column in player_stats.csv")
+        # Detect map column
+        maps_col = None
+        for c in maps.columns:
+            if c.lower() in ["map_name", "map", "mapname"]:
+                maps_col = c
+                break
+
+        if maps_col:
+            map_list = sorted(maps[maps_col].dropna().unique())
+        else:
+            map_list = ["ascent", "haven", "lotus", "split", "bind", "sunset", "breeze", "abyss"]
+
+        team1 = st.sidebar.selectbox("Select Team 1", team_list)
+        team2 = st.sidebar.selectbox("Select Team 2", [t for t in team_list if t != team1])
+        selected_map = st.sidebar.selectbox("Select Map", map_list)
+
+        # Prediction
+        if st.button("Predict Winner"):
+            t1 = team_stats.loc[team_stats["team"] == team1].select_dtypes(include='number').mean(numeric_only=True)
+            t2 = team_stats.loc[team_stats["team"] == team2].select_dtypes(include='number').mean(numeric_only=True)
+
+            # 🔹 Use all numeric features available in the model training
+            features = [
+                "rating", "acs", "adr", "kast", "hs_percent", "fk", "fd", "fk_fd_diff"
+            ]
+            input_data = np.array([[
+                t1.get("rating", 1.0), t2.get("rating", 1.0),
+                t1.get("acs", 200), t2.get("acs", 200),
+                t1.get("adr", 120), t2.get("adr", 120),
+                t1.get("kast", 70), t2.get("kast", 70),
+                t1.get("hs_percent", 25), t2.get("hs_percent", 25),
+                t1.get("fk", 10), t2.get("fk", 10),
+                t1.get("fd", 10), t2.get("fd", 10),
+                t1.get("fk_fd_diff", 0), t2.get("fk_fd_diff", 0),
+                0  # picked_by_code
+            ]])
+
+            try:
+                pred = model.predict(input_data)[0]
+                st.subheader(f" Map: {selected_map.upper()}")
+                if pred == 1:
+                    st.success(f" {team1.upper()} is likely to WIN!")
+                else:
+                    st.error(f" {team2.upper()} might WIN!")
+            except Exception as e:
+                st.error(f" Prediction error: {e}")
 else:
-    st.error(" Player dataset not loaded or empty.")
+    st.error(" team_aggregated_stats.csv not loaded or empty.")
